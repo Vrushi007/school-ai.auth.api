@@ -1,0 +1,166 @@
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from app.models.user import User
+from app.models.session import Session as UserSession
+from app.schemas.user import UserCreate, UserLogin
+from app.schemas.token import Token
+from app.utils.security import (
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_password_hash
+)
+from app.services.user_service import create_user, get_user_by_email
+from fastapi import HTTPException, status
+from app.db.session import settings
+
+
+def register_user(db: Session, user: UserCreate) -> User:
+    """Register a new user."""
+    return create_user(db, user)
+
+
+def authenticate_user(db: Session, email: str, password: str) -> User | None:
+    """Authenticate user with email and password."""
+    user = get_user_by_email(db, email)
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
+
+
+def login(db: Session, user_login: UserLogin) -> Token:
+    """Login user and create session."""
+    user = authenticate_user(db, user_login.email, user_login.password)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive"
+        )
+    
+    # Create tokens
+    token_data = {
+        "sub": user.id,
+        "email": user.email,
+        "role": user.role.name
+    }
+    
+    access_token, access_jti = create_access_token(token_data)
+    refresh_token, refresh_jti = create_refresh_token(token_data)
+    
+    # Create session
+    expires_at = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    session = UserSession(
+        user_id=user.id,
+        token_jti=access_jti,
+        refresh_token_jti=refresh_jti,
+        expires_at=expires_at
+    )
+    db.add(session)
+    db.commit()
+    
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+
+def refresh_access_token(db: Session, refresh_token: str) -> Token:
+    """Refresh access token using refresh token."""
+    try:
+        payload = decode_token(refresh_token)
+        
+        # Verify token type
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type"
+            )
+        
+        user_id = payload.get("sub")
+        refresh_jti = payload.get("jti")
+        
+        # Find session with this refresh token
+        session = db.query(UserSession).filter(
+            UserSession.user_id == user_id,
+            UserSession.refresh_token_jti == refresh_jti,
+            UserSession.is_revoked == False
+        ).first()
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        # Get user
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+        
+        # Create new access token
+        token_data = {
+            "sub": user.id,
+            "email": user.email,
+            "role": user.role.name
+        }
+        
+        new_access_token, new_access_jti = create_access_token(token_data)
+        
+        # Update session
+        session.token_jti = new_access_jti
+        session.expires_at = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        db.commit()
+        
+        return Token(
+            access_token=new_access_token,
+            refresh_token=refresh_token
+        )
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+
+def logout(db: Session, token_jti: str):
+    """Logout user by revoking session."""
+    session = db.query(UserSession).filter(UserSession.token_jti == token_jti).first()
+    if session:
+        session.is_revoked = True
+        db.commit()
+    return {"message": "Logged out successfully"}
+
+
+def change_password(db: Session, user: User, old_password: str, new_password: str):
+    """Change user password."""
+    if not verify_password(old_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect old password"
+        )
+    
+    user.hashed_password = get_password_hash(new_password)
+    
+    # Revoke all existing sessions
+    db.query(UserSession).filter(
+        UserSession.user_id == user.id,
+        UserSession.is_revoked == False
+    ).update({"is_revoked": True})
+    
+    db.commit()
+    return {"message": "Password changed successfully. Please login again."}
