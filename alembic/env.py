@@ -26,7 +26,7 @@ from app.db.base import Base
 from app.models import *  # noqa: F401, F403
 
 # Set the database URL from environment
-database_url = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/secure_identity_vault")
+database_url = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:password@localhost:5432/secure_identity_vault")
 # Escape % characters for ConfigParser (double them)
 # ConfigParser interprets % as interpolation syntax, so we need to escape it
 escaped_url = database_url.replace("%", "%%")
@@ -78,21 +78,16 @@ def run_migrations_online() -> None:
     """
     # Get the database URL directly and create engine
     # This avoids ConfigParser interpolation issues
-    database_url = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/secure_identity_vault")
-    
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = database_url
-    
+    database_url = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:password@localhost:5432/secure_identity_vault")
     connectable = engine_from_config(
-        configuration,
+        {"sqlalchemy.url": database_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection,
-            target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata
         )
 
         with context.begin_transaction():

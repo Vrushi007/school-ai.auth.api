@@ -5,12 +5,13 @@ A microservice for managing authentication and authorization for the VYON Boundl
 ## Features
 
 - **User Management**: Create, read, update, and delete users
-- **Role-Based Access Control (RBAC)**: Assign roles and permissions to users
+- **Organization Management**: Manage schools/institutions with hierarchical structure
+- **Role-Based Access Control (RBAC)**: Hierarchical roles (system_admin, school_admin, teacher, parent, student)
 - **JWT Authentication**: Secure token-based authentication
 - **Password Security**: BCrypt password hashing
 - **Token Refresh**: Refresh token mechanism for extended sessions
-- **User Roles**: Support for Teacher, Student, Admin, and Parent roles
 - **Session Management**: Track active sessions and token revocation
+- **Password Recovery**: Forgot password and reset password functionality
 
 ## Tech Stack
 
@@ -26,7 +27,7 @@ A microservice for managing authentication and authorization for the VYON Boundl
 ## Project Structure
 
 ```
-auth-service/
+school-ai.auth.api/
 ├── app/
 │   ├── db/
 │   │   ├── base.py          # SQLAlchemy declarative base
@@ -35,6 +36,7 @@ auth-service/
 │   ├── models/              # SQLAlchemy models
 │   │   ├── user.py
 │   │   ├── role.py
+│   │   ├── organization.py
 │   │   └── session.py
 │   ├── schemas/             # Pydantic schemas
 │   │   ├── user.py
@@ -43,7 +45,8 @@ auth-service/
 │   ├── routers/             # API route handlers
 │   │   ├── auth.py
 │   │   ├── users.py
-│   │   └── roles.py
+│   │   ├── roles.py
+│   │   └── organizations.py
 │   ├── services/            # Business logic layer
 │   │   ├── auth_service.py
 │   │   ├── user_service.py
@@ -75,15 +78,34 @@ auth-service/
 - `is_active`: Account status
 - `is_verified`: Email verification status
 - `role_id`: Foreign key to Role
+- `organization_id`: Foreign key to Organization
 - `created_at`: Timestamp
 - `updated_at`: Timestamp
 
 ### Role
 
 - `id`: Primary key
-- `name`: Role name (Teacher, Student, Admin, Parent)
+- `name`: Role name (system_admin, school_admin, teacher, student, parent)
 - `description`: Role description
 - `permissions`: JSON field for permissions
+- `is_active`: Role status
+
+### Organization
+
+- `id`: Primary key
+- `name`: Organization name
+- `code`: Unique organization identifier
+- `address`: Organization address
+- `city`: City
+- `state`: State
+- `country`: Country (default: India)
+- `postal_code`: Postal code
+- `phone`: Phone number
+- `email`: Contact email
+- `website`: Website URL
+- `is_active`: Organization status
+- `created_at`: Timestamp
+- `updated_at`: Timestamp
 
 ### Session
 
@@ -103,25 +125,32 @@ auth-service/
 - `POST /auth/login` - Login and get JWT tokens
 - `POST /auth/refresh` - Refresh access token
 - `POST /auth/logout` - Logout and revoke tokens
-- `POST /auth/verify-email` - Verify email address
+- `PATCH /auth/change-password` - Change password
 - `POST /auth/forgot-password` - Request password reset
-- `POST /auth/reset-password` - Reset password with token
 
 ### Users
 
-- `GET /users` - Get all users (Admin only)
+- `GET /users` - Get all users (with filters)
+- `GET /users/me` - Get current user profile
 - `GET /users/{id}` - Get user by ID
-- `GET /users/me` - Get current user
-- `PUT /users/{id}` - Update user
-- `DELETE /users/{id}` - Delete user (Admin only)
-- `PATCH /users/{id}/change-password` - Change password
+- `PATCH /users/{id}` - Update user
+- `DELETE /users/{id}` - Delete user
 
 ### Roles
 
 - `GET /roles` - Get all roles
-- `POST /roles` - Create role (Admin only)
-- `PUT /roles/{id}` - Update role (Admin only)
-- `DELETE /roles/{id}` - Delete role (Admin only)
+- `POST /roles` - Create role
+- `PUT /roles/{id}` - Update role
+- `DELETE /roles/{id}` - Delete role
+
+### Organizations
+
+- `POST /organizations` - Create organization
+- `GET /organizations` - Get all organizations (with filters)
+- `GET /organizations/{id}` - Get organization by ID
+- `PATCH /organizations/{id}` - Update organization
+- `DELETE /organizations/{id}` - Delete organization
+- `GET /organizations/{id}/users-count` - Get user count for organization
 
 ## Setup Instructions
 

@@ -1,24 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.schemas.user import UserCreate, UserLogin, ChangePassword
+from app.schemas.user import UserCreate, UserLogin, ChangePassword, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.token import Token, RefreshTokenRequest
 from app.services import auth_service
 from app.utils.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.token import Token
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=dict, status_code=201)
+@router.post("/register", status_code=201)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user."""
-    new_user = auth_service.register_user(db, user)
-    return {
-        "message": "User registered successfully",
-        "user_id": new_user.id,
-        "email": new_user.email
-    }
+    """
+    Register a new user. 
+    Account will be inactive until approved by administrator.
+    """
+    return auth_service.register_user_with_tokens(db, user)
 
 
 @router.post("/login", response_model=Token)
@@ -60,3 +59,21 @@ async def change_password(
         password_change.old_password,
         password_change.new_password
     )
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """Request password reset. Sends reset token (in production, would send email)."""
+    return auth_service.request_password_reset(db, request.email)
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """Reset password using a valid reset token."""
+    return auth_service.reset_password(db, request.token, request.new_password)
