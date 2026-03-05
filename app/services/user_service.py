@@ -1,15 +1,15 @@
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
-from app.utils.security import get_password_hash
+from app.utils.security import get_password_hash, generate_random_password
 from fastapi import HTTPException, status
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def create_user(db: Session, user: UserCreate) -> User:
-    """Create a new user."""
+def create_user(db: Session, user: UserCreate, auto_generate_password: bool = False, created_by_admin: bool = False) -> User:
+    """Create a new user. Optionally auto-generate password and activate if created by admin."""
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
@@ -35,19 +35,44 @@ def create_user(db: Session, user: UserCreate) -> User:
             detail="Organization ID is required for non-system admin users"
         )
     
-    # Create user (inactive by default for new registrations)
+    # Generate password if requested
+    password = user.password
+    if auto_generate_password or not password:
+        password = generate_random_password()
+    # Always activate if created by admin
+    is_active = True if created_by_admin else False
     db_user = User(
         email=user.email,
         username=user.username,
         full_name=user.full_name,
-        hashed_password=get_password_hash(user.password),
+        hashed_password=get_password_hash(password),
         role_id=user.role_id,
         organization_id=user.organization_id,
-        is_active=False  # New users are inactive until admin approves
+        is_active=is_active
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    db_user.generated_password = password if auto_generate_password or not user.password else None
+    # Send account created email if created by admin
+    if created_by_admin:
+        try:
+            from app.services.email_service import email_service
+            if db_user.generated_password:
+                email_service.send_user_created_email(
+                    user_email=db_user.email,
+                    user_name=db_user.full_name,
+                    username=db_user.username,
+                    temporary_password=db_user.generated_password
+                )
+            else:
+                email_service.send_user_activation_email(
+                    user_email=db_user.email,
+                    user_name=db_user.full_name,
+                    username=db_user.username
+                )
+        except Exception as e:
+            logger.error(f"Error sending account created email: {e}")
     return db_user
 
 

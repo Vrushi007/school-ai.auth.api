@@ -504,6 +504,155 @@ This is an automated message from VYON School Management System.
             text_content=text_content
         )
 
+    def send_user_created_email(
+        self,
+        user_email: str,
+        user_name: str,
+        username: str,
+        temporary_password: str
+    ) -> bool:
+        """
+        Send email when admin creates a user with a generated password.
+
+        Args:
+            user_email: User's email address
+            user_name: User's full name
+            username: User's username
+            temporary_password: Generated password
+
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        subject = "Your VYON Account Is Ready"
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }}
+        .content {{
+            background: #ffffff;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+        }}
+        .info-box {{
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .button {{
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }}
+        .footer {{
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            font-size: 12px;
+            color: #666;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to VYON</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px;">Your account is ready</p>
+    </div>
+
+    <div class="content">
+        <h2>Hello {user_name}! 👋</h2>
+
+        <p>Your organization administrator has created your account. You can log in using the credentials below.</p>
+
+        <div class="info-box">
+            <h3>Login Credentials</h3>
+            <p><strong>Username:</strong> {username}</p>
+            <p><strong>Email:</strong> {user_email}</p>
+            <p><strong>Temporary Password:</strong> {temporary_password}</p>
+        </div>
+
+        <p>Please log in and change your password after your first sign-in.</p>
+
+        <center>
+            <a href="{settings.frontend_url}/login" class="button">Login to Your Account →</a>
+        </center>
+
+        <p style="margin-top: 30px;">If you need help, contact your organization administrator or our support team.</p>
+
+        <p>Best regards,<br>
+        <strong>The VYON Team</strong></p>
+    </div>
+
+    <div class="footer">
+        <p>This is an automated message from VYON School Management System.</p>
+        <p>© 2026 VYON - Boundless Knowledge. All rights reserved.</p>
+    </div>
+</body>
+</html>
+"""
+
+        text_content = f"""
+Your VYON Account Is Ready
+
+Hello {user_name}!
+
+Your organization administrator has created your account. You can log in using the credentials below.
+
+Login Credentials:
+- Username: {username}
+- Email: {user_email}
+- Temporary Password: {temporary_password}
+
+Please log in and change your password after your first sign-in.
+
+Login URL: {settings.frontend_url}/login
+
+If you need help, contact your organization administrator or our support team.
+
+Best regards,
+The VYON Team
+
+---
+This is an automated message from VYON School Management System.
+© 2026 VYON - Boundless Knowledge. All rights reserved.
+"""
+
+        return self.send_email(
+            to_email=user_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content
+        )
+
 
 # Create a singleton instance
 email_service = EmailService()

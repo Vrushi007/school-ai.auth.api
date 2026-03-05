@@ -97,3 +97,9 @@ def verify_password_reset_token(token: str) -> str | None:
         return email
     except JWTError:
         return None
+
+
+def generate_random_password(length: int = 12) -> str:
+    """Generate a secure random password."""
+    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))

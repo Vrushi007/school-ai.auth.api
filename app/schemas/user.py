@@ -11,7 +11,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str | None = None
     role_id: int = 3  # Default to teacher role
     organization_id: int | None = 1  # Default to organization ID 1
 
@@ -34,6 +34,7 @@ class UserResponse(UserBase):
     organization: OrganizationResponse | None
     created_at: datetime
     updated_at: datetime
+    generated_password: str | None = None  # For admin to see generated password
 
     model_config = ConfigDict(from_attributes=True)
 

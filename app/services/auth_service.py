@@ -29,6 +29,11 @@ def register_user_with_tokens(db: Session, user: UserCreate) -> dict:
     User account will be inactive until approved by admin.
     Returns user info instead of tokens since account needs activation.
     """
+    if not user.password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password is required for self-registration"
+        )
     # Create the user (will be inactive by default)
     new_user = create_user(db, user)
     
